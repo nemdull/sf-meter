@@ -20,6 +20,16 @@ cd sf-meter
 
 すでに clone してあって `backend/` と `frontend/` が空のときは、`git submodule update --init` を実行してください。
 
+### いちばん早い方法（Docker）
+
+```bash
+docker compose up --build
+```
+
+DB（PostgreSQL）・API・画面がまとめて立ち上がります。http://localhost:5173 を開いてください。画面の右上に「API につながっています」と出れば、画面 → API → DB までつながっています。
+
+### 手元の Go と Node で動かす
+
 ターミナルを 2 つ使います。
 
 ```bash
@@ -74,7 +84,7 @@ cd frontend && npm test               # 画面
 - API は、メモリ実装と PostgreSQL 実装に同じテストを当てて、保存先を差し替えても結果が変わらないことを確かめる
 - 画面は、API につながらないときに使うサンプルデータに、API と同じ条件を当てて、同じ結果になることを確かめる
 
-どちらのリポジトリも、プルリクエストのたびに GitHub Actions でテストが走ります。
+どちらのリポジトリも、プルリクエストのたびに GitHub Actions でテストが走ります。このリポジトリの CI は、`docker compose up` で 3 つをまとめて立ち上げ、画面の側から API を呼んで、PostgreSQL の初期データ 15 件が返ってくることを確かめています。
 
 ## サブモジュールを新しくする
 
