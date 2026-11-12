@@ -84,7 +84,14 @@ cd frontend && npm test               # 画面
 - API は、メモリ実装と PostgreSQL 実装に同じテストを当てて、保存先を差し替えても結果が変わらないことを確かめる
 - 画面は、API につながらないときに使うサンプルデータに、API と同じ条件を当てて、同じ結果になることを確かめる
 
-どちらのリポジトリも、プルリクエストのたびに GitHub Actions でテストが走ります。このリポジトリの CI は、`docker compose up` で 3 つをまとめて立ち上げ、画面の側から API を呼んで、PostgreSQL の初期データ 15 件が返ってくることを確かめています。
+どちらのリポジトリも、プルリクエストのたびに GitHub Actions でテストが走ります。
+
+このリポジトリには、3 つをつないだ状態で確かめるテスト（`e2e/`、Playwright）があります。`docker compose up` で立ち上げたものをブラウザーで実際に開いて、画面 → nginx → API → PostgreSQL がつながっていること、検索・絞り込み・並べ替え・「ほかの技術を引く」が API の結果どおりに出ることを確かめます。CI でも毎回走ります。
+
+```bash
+docker compose up -d --build --wait
+cd e2e && npm ci && npx playwright install chromium && npm test
+```
 
 ## サブモジュールを新しくする
 
