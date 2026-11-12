@@ -1,0 +1,44 @@
+# DB・API・画面を、まとめて立ち上げる。
+#   git submodule update --init
+#   docker compose up --build
+#   → http://localhost:5173
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sfmeter
+      POSTGRES_PASSWORD: sfmeter
+      POSTGRES_DB: sfmeter_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # 初回の起動時に、テーブルと初期データ 15 件が入る
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sfmeter -d sfmeter_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://sfmeter:sfmeter@db:5432/sfmeter_db?sslmode=disable
+      # 書き込みの API を開けたいときだけ、環境変数か .env で渡す（空なら閉じたまま）
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    restart: on-failure
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    environment:
+      # 画面の nginx が、/api をここへ中継する
+      API_UPSTREAM: http://api:8080
+    ports:
+      - "5173:80"
+
+volumes:
+  postgres_data:

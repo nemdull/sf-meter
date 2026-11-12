@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同じブランチで新しい実行が始まったら、古い実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    name: まとめて立ち上げて、画面から DB までつながること
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # 外部のアクションは、タグではなくコミットの番号で固定する
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
+
+      - name: DB・API・画面を立ち上げる
+        run: docker compose up -d --build --wait --wait-timeout 240
+
+      - name: 画面 → nginx → API → PostgreSQL までつながっていること
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5173/api/v1/stats -o stats.json; then break; fi
+            sleep 2
+          done
+          cat stats.json
+          # 初期データ 15 件が、PostgreSQL から返ってきていること
+          grep -q '"count":15' stats.json
+          curl -fsS "http://localhost:5173/api/v1/techs?sort=-score&limit=1" | grep -q "シビラシステム"
+          # 画面そのものが返ること
+          curl -fsS http://localhost:5173/ | grep -q "SF Meter"
+
+      - name: うまくいかなかったときの記録
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: 片づけ
+        if: always()
+        run: docker compose down -v
