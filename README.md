@@ -1,90 +1,95 @@
 # SF Meter
-SF 作品に登場するテクノロジーの危険度や SF 度合いを数値化し、「SF メーター」として表示するためのモノレポジトリです。Go 製のバックエンド API（`backend/`）と、React + TypeScript + Vite で構築するフロントエンド（`frontend/`）の 2 つのサブプロジェクトを格納しています。
 
-## プロジェクト構成
-```
-sf-meter/
-├── backend/               # Go 製 REST API。クリーンアーキテクチャの学習用構成
-│   ├── domain/            # エンティティ定義
-│   ├── infrastructure/    # リポジトリ実装（メモリモック）
-│   ├── presentation/      # HTTP ハンドラーとルーター
-│   ├── registry/          # 依存解決（DI）とサーバー初期化
-│   ├── usecase/           # ビジネスロジックとポート定義
-│   └── main.go
-├── frontend/              # React + TypeScript + Vite による Web UI（現在はテンプレート状態）
-│   ├── src/
-│   └── index.html
-├── README.md
-└── LICENSE
-```
+SF 作品に出てくるテクノロジーが、いまどれくらい現実に近いか。それを 0〜100 の「実現度」で見せるアプリです。タイムマシンは 1、量子暗号通信は 88、といった具合です。
 
-詳細な実装メモは `backend/README.md` と `frontend/README.md` を参照してください。
+このリポジトリは入り口で、中身は 2 つのリポジトリに分かれています（サブモジュールとして入れてあります）。
 
-## 技術スタック
-- Backend: Go 1.24.x（標準ライブラリのみ）
-- Frontend: React 19 / TypeScript / Vite
-- 開発環境: Node.js 18 以上推奨、npm または pnpm
+| フォルダ | リポジトリ | 中身 |
+| --- | --- | --- |
+| `backend/` | [sf-meter-api](https://github.com/nemdull/sf-meter-api) | Go の API。標準ライブラリの `net/http` だけで、層を分けて依存の向きをそろえてある。保存先は PostgreSQL とメモリを切り替えられる |
+| `frontend/` | [sf-meter-web](https://github.com/nemdull/sf-meter-web) | React と TypeScript の画面。針で実現度を指す計器、検索、絞り込み。API につながらないときは、サンプルデータで動く |
 
-## セットアップ
-以下はモノレポジトリ全体をローカルで動かす際の手順です。
+作った人: [nemdull.com](https://www.nemdull.com/)
 
-### 1. リポジトリを取得
+## 動かす
+
 ```bash
-git clone https://github.com/nemdull/sf-meter.git
+git clone --recurse-submodules https://github.com/nemdull/sf-meter.git
 cd sf-meter
 ```
 
-### 2. バックエンドの起動
+すでに clone してあって `backend/` と `frontend/` が空のときは、`git submodule update --init` を実行してください。
+
+ターミナルを 2 つ使います。
+
 ```bash
+# 1 つ目: API（http://localhost:8080）。DB は要りません
 cd backend
-go run ./main.go
+go run .
 ```
-バックエンドは `http://localhost:8080` で待ち受けます。ポートを変更したい場合は `registry.NewHTTPServer` に渡しているアドレスを編集してください。
-
-### 3. フロントエンドのセットアップと起動
-フロントエンドは現在テンプレートの状態で、まだバックエンドと連携する UI は実装していません。開発を進める際は以下のコマンドでローカルサーバーを起動してください。
 
 ```bash
+# 2 つ目: 画面（http://localhost:5173）
 cd frontend
-npm install          # もしくは pnpm install / yarn install
-npm run dev          # http://localhost:5173 がデフォルト
+npm install
+npm run dev
 ```
 
-## API クイックリファレンス
-現状のバックエンドはメモリ上のモックデータを返す簡易 REST API です。
+画面の開発サーバーは、`/api` へのリクエストを API へ中継します。API を起こさなくても、画面はサンプルデータで動きます。
 
-| メソッド | パス                    | 説明                      |
-|----------|-------------------------|---------------------------|
-| GET      | `/api/v1/techs`         | テクノロジー一覧の取得   |
-| GET      | `/api/v1/tech?id={id}`  | 指定 ID の取得           |
+PostgreSQL を使うとき、書き込みの API を開けるときは、[backend の README](https://github.com/nemdull/sf-meter-api#readme) を見てください。
 
-サンプルレスポンス（`GET /api/v1/techs`）:
+## API をひとめで
+
+| メソッド | パス | 何をするか |
+| --- | --- | --- |
+| GET | `/api/v1/techs` | 一覧。`q`（検索）、`min_score` / `max_score`、`sort`、`limit` / `offset` が使える |
+| GET | `/api/v1/techs/{id}` | 1 件 |
+| GET | `/api/v1/techs/random` | どれか 1 件 |
+| GET | `/api/v1/stats` | 件数・平均・段階ごとの内訳 |
+| POST / PUT / DELETE | `/api/v1/techs`、`/api/v1/techs/{id}` | 追加・更新・削除。サーバーに `ADMIN_TOKEN` を設定したときだけ有効 |
+| GET | `/health` | サーバーと保存先が動いているか |
+
+```bash
+curl "http://localhost:8080/api/v1/techs?sort=-score&limit=1"
+```
 
 ```json
 [
-  {
-    "id": 1,
-    "name": "ドミネーター",
-    "description": "犯罪係数で裁く未来銃",
-    "score": 35
-  }
+  { "id": 2, "name": "シビラシステム", "description": "脳スキャンで犯罪係数を算出する全国犯罪予防システム", "score": 91, "level": "reality" }
 ]
 ```
 
-より詳しいアーキテクチャやレイヤーの役割は `backend/README.md` を参照してください。
+くわしい仕様は [openapi.yaml](https://github.com/nemdull/sf-meter-api/blob/main/docs/openapi.yaml) にあります。
 
-## 開発時のヒント
-- バックエンドはレイヤーごとに依存を逆転させているため、`infrastructure` の実装を差し替えるだけで永続化先を変更できます。
-- フロントエンドは Vite の初期テンプレートからスタートしているため、`frontend/src/App.tsx` を差し替えてバックエンド API を呼び出す UI を実装してください。
-- CORS や API のエンドポイント URL を共通化する場合は、Vite の環境変数（`.env`）で `VITE_API_BASE_URL` などを管理すると開発しやすくなります。
+## テスト
 
-## テスト・静的解析
-- Backend: まだテストは用意されていません。`go test ./...` で一括実行できる構成を想定しています。
-- Frontend: `npm run lint` で ESLint を実行できます。必要に応じて `npm run build` で本番ビルドを確認してください。
+```bash
+cd backend && go test -race ./...     # API
+cd frontend && npm test               # 画面
+```
 
-## 今後のロードマップ（例）
-- バックエンド: バリデーションやエラーハンドリングの整備、永続化層の差し替え、テスト追加
-- フロントエンド: API と連携した UI 構築、デザイン適用、テスト導入（Vitest / Testing Library 等）
+2 つのリポジトリで、同じことを両側から確かめています。
+
+- API は、メモリ実装と PostgreSQL 実装に同じテストを当てて、保存先を差し替えても結果が変わらないことを確かめる
+- 画面は、API につながらないときに使うサンプルデータに、API と同じ条件を当てて、同じ結果になることを確かめる
+
+どちらのリポジトリも、プルリクエストのたびに GitHub Actions でテストが走ります。
+
+## サブモジュールを新しくする
+
+`backend/` と `frontend/` は、それぞれのリポジトリの特定のコミットを指しています。新しいものに合わせるとき:
+
+```bash
+git submodule update --remote
+git add backend frontend
+git commit -m "chore: サブモジュールを更新"
+```
+
+## 関連する記事
+
+- [Go言語で気づいたシンプル設計の真髄 ─ Rails・Java経験者がハマったポイントまとめ](https://qiita.com/nemdull/items/7ff73572ccc3c78d311d)
 
 ## ライセンス
+
 このリポジトリは [MIT License](LICENSE) の下で公開されています。
