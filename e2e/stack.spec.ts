@@ -51,13 +51,22 @@ test('カードを押すと、計器がその技術を指す', async ({ page }) 
   await expect(page.getByRole('heading', { level: 2 })).toHaveText('タイムマシン')
 })
 
-test('「ほかの技術を引く」で、API がどれか 1 件を返す', async ({ page }) => {
+test('「ほかの技術を引く」で、API が返した 1 件が画面に出る', async ({ page }) => {
   await openConnected(page)
 
-  const answered = page.waitForResponse((response) => response.url().includes('/api/v1/techs/random') && response.ok())
-  await page.getByRole('button', { name: 'ほかの技術を引く' }).click()
-  const drawn = (await (await answered).json()) as { name: string; score: number }
+  // 画面は、いま出ているものと同じものを引いたら、もう 1 回だけ引き直す。
+  // なので API の応答は 1 回とは限らない。返ってきたものを全部覚えておき、最後の 1 件と画面を比べる
+  const drawn: { name: string; score: number }[] = []
+  page.on('response', async (response) => {
+    if (response.url().includes('/api/v1/techs/random') && response.ok()) drawn.push(await response.json())
+  })
 
-  await expect(page.getByRole('heading', { level: 2 })).toHaveText(drawn.name)
-  await expect(page.getByRole('img', { name: new RegExp(`^${drawn.name}の実現度は ${drawn.score}。`) })).toBeVisible()
+  await page.getByRole('button', { name: 'ほかの技術を引く' }).click()
+
+  await expect(async () => {
+    const last = drawn.at(-1)
+    expect(last, 'API がまだ答えていない').toBeDefined()
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(last!.name, { timeout: 1000 })
+    await expect(page.getByRole('img', { name: new RegExp(`^${last!.name}の実現度は ${last!.score}。`) })).toBeVisible({ timeout: 1000 })
+  }).toPass({ timeout: 10_000 })
 })
