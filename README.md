@@ -93,6 +93,13 @@ docker compose up -d --build --wait
 cd e2e && npm ci && npx playwright install chromium && npm test
 ```
 
+「API が落ちても、画面は止まらない」も、実際に落として確かめています。CI は、上のテストのあとに API のコンテナを止め、画面がサンプルデータに切り替わって検索や絞り込みが動き続けることを確かめてから、API を起こし直して、もう一度つながることを確かめます。
+
+```bash
+docker compose stop api && npm run test:offline
+docker compose start api
+```
+
 ## サブモジュールを新しくする
 
 `backend/` と `frontend/` は、それぞれのリポジトリの特定のコミットを指しています。新しいものに合わせるとき:

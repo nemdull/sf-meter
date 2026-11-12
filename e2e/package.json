@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test stack",
+    "test:offline": "playwright test offline"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0"
